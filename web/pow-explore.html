@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Power Flow</title>
+    <link rel="stylesheet" href="css/style.css" media="screen" type="text/css" />
+    <link rel="stylesheet" type="text/css" media="screen, print" href="css/slickmap.css" />
+    <script type="text/javascript" src="js/d3.v3.js"></script>
+  </head>
+  <body>
+<div id="anchor">
+    <div id="title">Power Flow Explorer</div>
+<h4>Interactive Grid</h4>
+<p>
+This interactive grid displays information associated with the different operating points.  The drop-down box in the lower left allows the operating points to be changed for different optimization models.  The red circles are generators and the blue circles are demands.  The size of the circle is related to the size of the net-injection.  The arcs have width proportional to the active power flow and the color is related to how close the flow is to the line capacity.  The 6 generators are displayed in a bar chart below and the pink bar to the right is the cost of that generator.  Below that is a bar graph for the lines with the same color scheme as the grid and the flows normalized with the capacity.  The small line at the top represents 2 standard deviations of branch flows and will contain 95% of the scenarios with respect to branch flow.  Putting the cursor on individual elements will display detailed information.
+</p>
+<div id="tooltipG">
+  <p><strong><span id="name">Generator</span></strong></p>
+  <p><span id="P">100</span></p>
+  <p><span id="Pmax">100</span></p>
+  <p><span id="cost">100</span></p>
+  <p><span id="beta">100</span></p>
+  <p><span id="c2">100</span></p>
+  <p><span id="c1">100</span></p>
+</div>
+<div id="tooltipCost">
+  <p><strong><span id="name">Generator</span></strong></p>
+  <p><span id="cost">100</span></p>
+</div>
+<center>  
+	<div id="gendiv"></div>
+
+    <div id="wrap">
+      <div class="left">
+	<div id="flowdiv"></div>
+	<div id="spacer">
+	  <div>
+	    <p><span id="nodes">100</span></p>
+	    <p><span id="edges">100</span></p>
+	    <p><span id="gens">100</span></p>
+	    <p><span id="tdem">100</span></p>
+	    <p><span id="tgen">100</span></p>
+	  </div>
+	</div>
+	<div id="spacer2">
+	  <div>
+	    <p><span id="cost">100</span></p>
+	    <p><span id="risk">100</span></p>
+	    <p><span id="SD">100</span></p>
+	  </div>
+	</div>
+	<div id="titlescent">Here is a 118 bus grid.</div>
+	<select>
+	  <option value="data/opf.json">OPF</option>
+	  <option value="data/cc.json">CC</option>
+	  <option value="data/jcc.json">JCC</option>
+	</select><br/>
+	<div id="datanote">
+	  <a href="data/opf.json">Data</a>
+	</div>
+      </div>
+    </div>
+	<div id="edgediv"></div>
+
+</center>
+<div id="tooltipE">
+  <p><strong><span id="name">Important Label Heading</span></strong></p>
+  <p><span id="flow">100</span></p>
+ <p><span id="cap">100</span></p>
+ <p><span id="norm">100</span></p>
+  <p><span id="sd">100</span></p>
+  <p><span id="prob">100</span></p>
+  <p><span id="z">100</span></p>
+</div>
+<div id="tooltipN">
+  <p><strong><span id="name">Important Label Heading</span></strong></p>
+  <p><span id="ni">100</span></p>
+  <p><span id="gen">100</span></p>
+  <p><span id="demand">100</span></p>
+</div>
+
+
+
+
+
+    
+    
+
+
+
+
+
+
+
+<script type="text/javascript">
+
+  var dt;
+//  var crf;
+  var listcc=[];
+  var listopf=[];
+  var listjcc =[];
+
+  d3.tsv("data/cost-risk2.dat", function(data) {
+//  crf=data;
+  listopf.push({c:data[0].copf,r: data[0].ropf,type:"opf"});
+//  console.log(data);
+  data.forEach(function(d,i){
+  listcc.push({c: d.ccc, r: d.rcc, type: "cc", eta: d.eta});
+  listjcc.push({c:d.csjc,r: d.rsjc});
+  });
+
+  
+  makeScatter();
+  });
+
+
+  d3.json("data/opf.json", function(data) {
+   dt=data.dataset;
+  console.log(dt);
+
+   makeGraph();
+
+
+  });
+
+
+
+
+
+
+  function makeGraph() {
+
+
+  ///////////////////////////////////////////INTERACTIVE GRID
+  //Width and height
+  var numbus=dt.nodes.length;
+  var w = 1000;
+
+
+
+  var dist =d3.scale.linear()
+    .domain([d3.min(dt.edges,function(d){return 1/d.X;}), d3.max(dt.edges,function(d){return 1/d.X;})])
+    .range([5, 50]);
+
+  var hscale = d3.scale.linear()
+  .domain([118,500])
+  .range([1,2]);
+
+  var chargescale = d3.scale.linear()
+  .domain([118,400])
+  .range([1,.5]);
+
+  var SD = dt.SD;
+   var maxG = d3.max(dt.gens,function(d){ return d.p; } );
+   var maxGmax = d3.max(dt.gens,function(d){ return d.pmax; } );
+   var maxDemand = d3.max(dt.nodes,function(d){ return d.demand; } );
+   var maxB = d3.max(dt.gens,function(d){ return d.beta; } );
+   var maxCo = d3.max(dt.gens,function(d){ return d.cost; } );
+ //   console.log(gensdata);
+      var scaleGen = d3.scale.linear()
+          .domain([0, maxGmax ])
+          .range([0, 80]);
+      var colorGen = d3.scale.linear()
+          .domain([0, maxG ])
+          .range([120, 225]);
+      var colorDemand = d3.scale.linear()
+          .domain([0, maxDemand ])
+          .range([120, 225]);
+      var scaleBeta = d3.scale.linear()
+          .domain([0, maxB ])
+          .range([0, 10]);
+      var colorBeta = d3.scale.linear()
+          .domain([0, maxB ])
+          .range([50, 100]);
+      var scaleCost = d3.scale.linear()
+          .domain([0, maxCo ])
+          .range([0, 130]);
+      var colorCost = d3.scale.linear()
+          .domain([0, maxCo ])
+          .range([80, 220]);
+
+
+
+  var h = 600*hscale(numbus);
+  d3.select("#spacer").style("height",(2.175*h/3+70)+"px");
+
+  var numNodes = dt.nodes.length
+  var numEdges = dt.edges.length
+  var numGens = dt.gens.length
+  var totalDemand = d3.sum(dt.nodes, function(d) { return d.demand; });
+  var totalGen = d3.sum(dt.gens, function(d) { return d.p; });
+  d3.select("#spacer").select("#nodes")
+  .text("Nodes: "+numNodes);
+  d3.select("#spacer").select("#edges")
+  .text("Edges: "+numEdges);
+  d3.select("#spacer").select("#gens")
+  .text("Gens: "+numGens);
+  d3.select("#spacer").select("#tdem")
+  .text("Total Demand: "+totalDemand.toFixed(2));
+  d3.select("#spacer").select("#tgen")
+  .text("Total Gen: "+totalGen.toFixed(2));
+
+  d3.select("#spacer2").select("#cost")
+  .text("Cost: "+dt.cost.toFixed(1));
+  d3.select("#spacer2").select("#risk")
+  .text("Risk: "+dt.risk.toFixed(4));
+  d3.select("#spacer2").select("#SD")
+  .text("SD[Demand]: "+dt.SD.toFixed(2));
+
+  d3.select("#spacer3").select("#L")
+  .text("L: "+dt.L);
+  d3.select("#spacer3").select("#p")
+  .text("p: "+dt.p);
+
+
+  d3.select("#titlescent")
+  .text("This is a "+numNodes+" bus grid.");
+  
+  d3.select("#powerdata").select('a').attr("href","data/case"+numNodes+".json");
+
+
+  //Initialize a default force layout, using the nodes and edges in dataset
+  var force = d3.layout.force()
+   .nodes(dt.nodes)
+   .links(dt.edges)
+   .gravity(0.06)
+   .size([w, h])
+   .linkDistance(
+function(d) { 
+//  console.log(d);
+  return dist(1/d.X);
+  }
+)
+   .charge([-105*chargescale(numbus)])
+   .start();
+
+  var colors = d3.scale.category10();
+
+      var lW = d3.scale.linear()
+          .domain([d3.min(dt.edges,function(d){return Math.abs(d.flow);}), d3.max(dt.edges,function(d){return Math.abs(d.flow);})])
+          .range([.35, 7]);
+
+   var maxD = d3.max(dt.nodes,function(d){ return d.ni; } );
+   var maxG = d3.max(dt.nodes,function(d){ return -d.ni; } );
+   var max = Math.max(maxD,maxG);
+  var maxNC = d3.max(dt.edges,function(d){ return (Math.abs(d.flow)/d.cap).toFixed(3) } );
+  console.log("Max Normalized Cap: "+maxNC);
+  maxNC=1;
+
+      var rD = d3.scale.linear()
+          .domain([0, max ])
+          .range([3, 13]);
+
+      var rG = d3.scale.linear()
+          .domain([0, max ])
+          .range([3, 13]);
+
+      var redC = d3.scale.pow().exponent(4)
+          .domain([0, maxNC ])
+          .range([216, 255]);
+      var greenC = d3.scale.pow().exponent(4)
+          .domain([0, maxNC ])
+          .range([216, 94]);
+      var blueC = d3.scale.pow().exponent(4)
+          .domain([0, maxNC ])
+          .range([216, 0]);
+
+  for (var i=0; i<dt.nodes.length;i++)
+		    {
+		    if (dt.nodes[i].ni >= 0 )
+    {
+    dt.nodes[i].r = rD(dt.nodes[i].ni);
+    }
+    else 
+    {
+    dt.nodes[i].r = rG(-dt.nodes[i].ni);
+    }
+		    }
+
+  //Create SVG element
+    
+//    d3.select("svg").remove();
+  var svg = d3.select("#flowdiv").append("svg")
+  .attr("width", w)
+  .attr("height", h);
+
+
+
+
+  //Create edges as lines
+  var edges = svg.selectAll("line")
+  .data(dt.edges)
+  .enter()
+  .append("line")
+  .style("stroke", function(d) {     d.normflow=(Math.abs(d.flow)/d.cap).toFixed(3);
+//    r= d3.hsl("#ccc");
+//    console.log(r.rgb());
+    r=d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow));
+    return r;})
+//    return r.darker(.055);} )
+  .style("stroke-width", function(d) { return lW(Math.abs(d.flow)); } )
+      .on("mouseover", function(d){
+      //Update the tooltip position and value
+      var tooltip = d3.select("#tooltipE");
+      tooltip
+        .style("left", "125px")
+        .style("top", "-495px")
+        .select("#name")
+        .text("Arc "+d.source.name + " -> " + d.target.name);
+      
+      tooltip.select("#flow")
+        .text("Flow: "+d.flow.toFixed(2));
+      tooltip.select("#cap")
+        .text("U: "+d.cap);
+      tooltip.select("#sd")
+        .text("SD[Flow]: "+d.sd.toFixed(4));
+      tooltip.select("#prob")
+        .text("P[Flow>U]: "+d.prob.toFixed(4));
+      tooltip.select("#z")
+        .text("P[Fail]: "+d.z.toFixed(4));
+      tooltip.select("#norm")
+        .text("Norm. Flow: "+d.normflow);
+
+      tooltip.select("#X")
+        .text("X: "+d.X);
+      tooltip.select("#index").style("font-size","65%")
+        .text("Index: "+d.index);  
+      tooltip.select("#index2").style("font-size","65%")
+        .text("Index: "+d.source.index + " -> " + d.target.index);
+
+      //Show the tooltip
+      d3.select("#tooltipE").transition().duration(100).style("opacity",0.9375);
+      })
+    .on("mouseout", function(d){
+    
+      d3.select("#tooltipE").transition().duration(375).style("opacity",0.0);
+    });
+
+  //Create nodes as circles
+  var nodes = svg.selectAll("circle")
+  .data(dt.nodes)
+  .enter()
+  .append("circle")
+  .attr("r", function(d) {
+  if ( d.ni>=0 ){ return rD(d.ni); }
+  else { return rG(-d.ni); }
+  })
+  .style("fill", function(d){
+   if(d.ni>=0){ return d3.rgb(0,0,colorDemand(d.demand));}
+  else{ console.log(d); return d3.rgb(colorGen(d.p),0,0); }})
+      .on("mouseover", function(d){
+      d3.select(this).attr("fill","red");
+
+      //Update the tooltip position and value
+      var tooltip = d3.select("#tooltipN");
+      tooltip
+        .style("left", "125px")
+        .style("top", "-650px")
+        .select("#name")
+        .text("Node: "+d.name);
+      
+      tooltip.select("#ni")
+        .text("Net Inject: "+-d.ni.toFixed(2));
+      tooltip.select("#gen")
+        .text("Gen: "+d.p.toFixed(2));
+      tooltip.select("#demand")
+        .text("Demand: "+d.demand.toFixed(2));
+      tooltip.select("#index").style("font-size","65%")
+        .text("Index: "+d.index);
+
+      //Show the tooltip
+      d3.select("#tooltipN").transition().duration(100).style("opacity",0.9375);
+      })
+    .on("mouseout", function(d){
+      d3.select("#tooltipN").transition().duration(375).style("opacity",0.0);
+    })    
+  .call(force.drag);
+
+  //Every time the simulation "ticks", this will be called
+  force.on("tick", function() {
+  
+  nodes.attr("cx", function(d) { return d.x = Math.max(d.r, Math.min(w - d.r, d.x)); })
+  .attr("cy", function(d) { return d.y = Math.max(d.r, Math.min(h - d.r, d.y)); });
+
+  edges.attr("x1", function(d) { return d.source.x; })
+   .attr("y1", function(d) { return d.source.y; })
+   .attr("x2", function(d) { return d.target.x; })
+   .attr("y2", function(d) { return d.target.y; });
+
+  //nodes.attr("cx", function(d) { return d.x; })
+  // .attr("cy", function(d) { return d.y; });
+
+  });
+
+
+
+
+
+
+    /////GENERATOR GRAPH CHART
+    //Width and height
+    var w2 = 500;
+    var h2 = 110;
+    var h3 = 50;
+    var barPadding2 = 15;
+    var scaleww = 2;
+
+    gensdata=dt.gens;
+    var num = dt.gens.length;
+
+
+
+    //Create SVG element
+    var svg2 = d3.select("#gendiv")
+    .append("svg")
+    .attr("width", w2)
+    .attr("height", h2+h3-35);
+
+    //Generator power
+    var gens =     svg2.selectAll("rect4")
+       .data(dt.gens)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i) {
+    return i * (w2 / num);
+       })
+       .attr("y", function(d) {
+    return h2 - scaleGen(d.p);
+       })
+    .attr("fill", function(d) { return d3.rgb(colorGen(d.p),0,0);} )
+       .attr("width", w2 / gensdata.length - barPadding2)
+       .attr("height", function(d) {
+    return scaleGen(d.p);
+       })
+    .on("mouseover",function(d){
+    var tooltip = d3.select("#tooltipG");
+    tooltip
+    .style("left", 50)
+    .style("top", 50);
+
+
+    tooltip.select("#name")
+    .text("Gen Bus#"+d.bus);
+
+    tooltip.select("#P")
+    .text("P: "+d.p.toFixed(1));
+
+    tooltip.select("#Pmax")
+    .text("Pmax: "+d.pmax.toFixed(1));
+
+    tooltip.select("#cost")
+    .text("Cost: "+d.cost.toFixed(1));
+
+    tooltip.select("#beta")
+    .text("Slack: "+d.beta.toFixed(3));
+
+    tooltip.select("#c2")
+    .text("c2: "+d.c2);
+    tooltip.select("#c1")
+    .text("c1: "+d.c1);
+//    tooltip.select("#c0")
+//    .text("c0: "+d.c0);
+
+//    console.log(nodes[0][d.bus-1]);
+    nodes[0][d.bus-1].style.cssText = "fill: black";
+
+      d3.select("#tooltipG").transition().duration(100).style("opacity",0.9375);
+      })
+    .on("mouseout", function(d){
+        nodes[0][d.bus-1].style.cssText = "fill: "+d3.rgb(colorGen(d.p),0,0);
+      d3.select("#tooltipG").transition().duration(375).style("opacity",0.0);
+    });
+
+    var costgroup = svg2.selectAll("rectcost")
+    .data(gensdata)
+    .enter()
+    .append("rect")
+    .attr("x", function(d,i) {
+    return i*(w2/num)-12.5 + w2/num;
+    })
+    .attr("y", function(d) {
+    return h2 - scaleCost(d.cost);
+    })
+    .attr("width", barPadding2*2/3)
+    .attr("height",function(d){
+    return scaleCost(d.cost);
+    })
+    .attr("fill", function(d) { return d3.rgb(colorCost(d.cost),0,colorCost(d.cost));} )
+    .on("mouseover",function(d){
+    var tooltip = d3.select("#tooltipCost");
+    tooltip
+    .style("left", 50)
+    .style("top",50);
+    tooltip.select("#name")
+    .text("Gen Bus#"+d.bus);
+    tooltip.select("#cost")
+    .text("Cost: "+d.cost.toFixed(1));
+
+      d3.select("#tooltipCost").transition().duration(100).style("opacity",0.9375);
+      })
+    .on("mouseout", function(d){
+      d3.select("#tooltipCost").transition().duration(375).style("opacity",0.0);
+    });
+
+
+    //generator slack distribution
+
+    var betagroup = svg2.selectAll("rect2")
+       .data(gensdata)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i) {
+    return i * (w2 / num) + (w2/num-barPadding2)/2;
+       })
+       .attr("y", function(d) {
+    return h2 - scaleGen(d.p) - scaleGen(2*d.beta*SD);
+       })
+    .attr("fill", function(d) { return d3.rgb(colorGen(d.p),0,0);} )
+       .attr("width", 3 )
+       .attr("height", function(d) {
+    return scaleGen(2*d.beta*SD);
+       });
+
+
+    var genmaxgroup = svg2.selectAll("rect5")
+       .data(gensdata)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i) {
+    return i * (w2 / num);
+       })
+       .attr("y", function(d) {
+    return h2 - scaleGen(d.pmax);
+       })
+       .attr("width", w2 / gensdata.length - barPadding2)
+       .attr("height", function(d) {
+    return 2;
+       })
+    .attr("fill",d3.rgb(25,25,25))
+    .attr("opacity",.5);
+
+
+    svg2.selectAll("text")
+       .data(gensdata)
+       .enter()
+       .append("text")
+       .text(function(d) {
+    return d.p;
+       })
+       .attr("text-anchor", "middle")
+       .attr("x", function(d, i) {
+    return i * (w2 / gensdata.length) + (w2 / gensdata.length - barPadding2) / 2;
+       })
+       .attr("y", function(d) {
+    return h2 - scaleGen(d.p) + 14;
+       })
+       .attr("font-family", "sans-serif")
+       .attr("font-size", "11px")
+       .attr("fill", "white");
+
+
+/*    var betatext = svg2.selectAll("text2")
+       .data(gensdata)
+       .enter()
+       .append("text")
+       .text(function(d) {
+    return d.beta.toFixed(3);
+       })
+       .attr("text-anchor", "middle")
+       .attr("x", function(d, i) {
+    return i * (w2 / gensdata.length) + (w2 / gensdata.length - barPadding2) / 2;
+       })
+       .attr("y", function(d) {
+    return h2-scaleGen(d.p)-3;
+       })
+       .attr("font-family", "sans-serif")
+       .attr("font-size", "11px")
+       .attr("fill", "white");
+
+    var costtext = svg2.selectAll("tttxt3")
+    .data(gensdata)
+    .enter()
+    .append("text")
+    .text(function(d){
+    return d.cost.toFixed(1);
+    })
+    .attr("text-anchor", "middle")
+    .attr("x", function(d, i) {
+    return i * (w2 / gensdata.length) + (w2 / gensdata.length - barPadding2) / 2;
+    })
+    .attr("y", function(d) {
+    return h2+45;
+    })
+    .attr("font-family", "sans-serif")
+    .attr("font-size", "20px")
+    .attr("fill", "black");
+    
+//    costtext.attr("opacity",1);
+
+*/
+    svg2.selectAll("text3")
+       .data(gensdata)
+       .enter()
+       .append("text")
+       .text(function(d) {
+    return "bus "+d.bus;
+       })
+       .attr("text-anchor", "middle")
+       .attr("x", function(d, i) {
+    return i * (w2 / gensdata.length) + (w2 / gensdata.length - barPadding2) / 2;
+       })
+       .attr("y", function(d) {
+    return h2+13;
+       })
+       .attr("font-family", "sans-serif")
+       .attr("font-size", "11px")
+       .attr("fill", "black");
+
+
+
+
+
+    /////Edge GRAPH CHART
+    //Width and height
+    var w4 = 900;
+    var h4 = 185;
+    var barPadding4 = 3;
+
+
+
+    //Create SVG element
+    var svg4 = d3.select("#edgediv")
+    .append("svg")
+    .attr("width", w4)
+    .attr("height", h4);
+
+
+      var scaleNorm = d3.scale.linear()
+          .domain([0, 1 ])
+          .range([0, 170]);
+
+    svg4.append("rect")
+    .attr("x", 0)
+    .attr("y", h4 -scaleNorm(1))
+    .attr("width",w4)
+    .attr("height",2)
+    .attr("fill",d3.rgb(25,25,25))
+    .attr("opacity",.5);
+
+
+    var linegraph =     svg4.selectAll("rect4")
+       .data(dt.edges)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i) {
+    return i * (w4 / numEdges);
+       })
+       .attr("y", function(d) {
+    return h4 - scaleNorm(d.normflow);
+       })
+    .attr("fill", function(d) { return d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow));} )
+       .attr("width", w4 / dt.edges.length - barPadding4)
+       .attr("height", function(d) {
+    return scaleNorm(d.normflow);
+       })
+      .on("mouseover", function(d){
+      //Update the tooltip position and value
+      var tooltip = d3.select("#tooltipE");
+      tooltip
+        .style("left","125px")
+        .style("top", "-495px")
+        .select("#name")
+        .text("Arc "+d.source.name + " -> " + d.target.name);
+      tooltip.select("#flow")
+        .text("Flow: "+d.flow.toFixed(2));
+      tooltip.select("#cap")
+        .text("U: "+d.cap);
+      tooltip.select("#sd")
+        .text("SD[Flow]: "+d.sd.toFixed(4));
+      tooltip.select("#prob")
+        .text("P[Flow>U]: "+d.prob.toFixed(4));
+      tooltip.select("#z")
+        .text("P[Fail]: "+d.z.toFixed(4));
+      tooltip.select("#norm")
+        .text("Norm. Flow: "+d.normflow);
+
+      tooltip.select("#X")
+        .text("X: "+d.X);
+
+
+      tooltip.select("#index").style("font-size","65%")
+        .text("Index: "+d.index);
+    
+      tooltip.select("#index2").style("font-size","65%")
+        .text("Index: "+d.source.index + " -> " + d.target.index);
+
+      //Show the tooltip
+      d3.select("#tooltipE").transition().duration(100).style("opacity",0.9375);
+//    console.log(edges[0][d.index]);
+
+//    console.log(edges[0][d.index].style.cssText);
+    edges[0][d.index].style.cssText= "stroke: rgb(0,0,0); stroke-width: "+2*lW(Math.abs(d.flow)) ;
+//    console.log(edges[0][d.index].style.cssText);
+//    transition().
+//    style("stroke","black");
+//  .style("stroke-width", function(d) { return lW(Math.abs(d.flow)); } )
+//    r=d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow));
+      })
+    .on("mouseout", function(d){
+          d3.select("#tooltipE").transition().duration(375).style("opacity",0.0);
+    edges[0][d.index].style.cssText= "stroke: "+d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow))+"; stroke-width: "+lW(Math.abs(d.flow)) ;
+    });
+
+    var sdgraph =     svg4.selectAll("rect4")
+       .data(dt.edges)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i) {
+    return i * (w4 / numEdges) + w4/numEdges/3+1;
+       })
+       .attr("y", function(d) {
+    return h4-scaleNorm(d.normflow)-scaleNorm(2*d.sd/d.cap)/2;
+       })
+    .attr("fill",function(d) { return d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow));} )
+       .attr("width", 2)
+       .attr("height", function(d) {
+    return scaleNorm(2*d.sd/d.cap);
+       });
+
+/////////////////TRANSITION
+
+
+    console.log("here");
+    sel=d3.selectAll("select").on("change",change);
+
+    function change(){
+    console.log(sel.property("value"));
+    var selection=sel.property("value");
+    
+    d3.json(selection, function(data) {
+    dt=data.dataset;
+    console.log(dt);
+
+    var datanote = d3.select("#datanote");
+    datanote.select("a").attr("href",selection);
+
+  d3.select("#spacer2").select("#cost")
+  .text("Cost: "+dt.cost.toFixed(1));
+  d3.select("#spacer2").select("#risk")
+  .text("Risk: "+dt.risk.toFixed(4));
+  d3.select("#spacer2").select("#SD")
+  .text("SD[Demand]: "+dt.SD);
+  d3.select("#spacer3").select("#L")
+  .text("L: "+dt.L);
+  d3.select("#spacer3").select("#p")
+  .text("p: "+dt.p);
+
+    gensdata=dt.gens;
+    
+
+    //transition to new data values
+    svg2.selectAll("rect")
+       .data(gensdata)
+       .transition()
+       .attr("y", function(d) {
+    return h2 - scaleGen(d.p);
+       })
+    .attr("fill", function(d) { return d3.rgb(colorGen(d.p),0,0);} )
+       .attr("height", function(d) {
+    return scaleGen(d.p);
+       });
+
+
+    svg2.selectAll("text")
+       .data(gensdata)
+    .transition()
+       .text(function(d) {
+    return d.p;
+       })
+       .attr("y", function(d) {
+    return h2 - scaleGen(d.p) + 14;
+       });
+
+    betagroup
+    .data(gensdata)
+    .transition()
+    .attr("y", function(d) {
+    return h2-scaleGen(d.p)-scaleBeta(d.beta);
+       })
+    .attr("fill", function(d) { return d3.rgb(colorGen(d.p),0,0);} )
+    .attr("height", function(d) {
+    return scaleBeta(d.beta);
+    });
+
+    costgroup
+    .data(gensdata)
+    .transition()
+    .attr("y", function(d) {
+    return h2 - scaleCost(d.cost);
+    })
+    .attr("height",function(d){
+    return scaleCost(d.cost);
+    })
+    .attr("fill", function(d) { return d3.rgb(colorCost(d.cost),0,colorCost(d.cost));
+    });
+
+/*    betatext
+    .data(gensdata)
+    .transition()
+    .text(function(d) {
+    return d.beta.toFixed(3);
+    })
+    .attr("y", function(d) {
+    return h2-scaleGen(d.p)-3;
+    });
+
+    costtext
+    .data(gensdata)
+    .transition()
+    .text(function(d) {
+    return d.cost.toFixed(1);
+    });
+
+*/
+    //////////////NODESS
+//    console.log(dt.nodes);
+//    console.log(nodes);
+    dt.nodes.forEach(function(d,i){
+//    console.log(d,i);
+//    console.log(nodes[0][i].__data__.ni);
+    nodes[0][i].__data__.ni = d.ni;
+    nodes[0][i].__data__.p = d.p;
+    nodes[0][i].__data__.demand = d.demand;
+    });
+
+    nodes.transition()
+    .attr("r",function(d) {
+    if ( d.ni>=0 ){ return rD(d.ni); }
+    else { return rG(-d.ni); }
+    });
+
+
+    /////////////////////EDGES
+//    console.log(dt.edges);
+//    console.log(edges);
+    dt.edges.forEach(function(d,i){
+//    console.log(d,i);
+//    console.log(edges[0][i].__data__);
+    edges[0][i].__data__.flow=d.flow;
+    edges[0][i].__data__.sd=d.sd;
+    edges[0][i].__data__.prob=d.prob;
+    edges[0][i].__data__.z=d.z;
+
+    linegraph[0][i].__data__.flow=d.flow;
+    linegraph[0][i].__data__.sd=d.sd;
+    linegraph[0][i].__data__.prob=d.prob;
+    linegraph[0][i].__data__.z=d.z;
+    });
+
+
+    edges.transition()
+    .style("stroke", function(d) {     d.normflow=(Math.abs(d.flow)/d.cap).toFixed(3);
+    r=d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow));
+    return r.darker(.055);} )
+    .style("stroke-width", function(d) { return lW(Math.abs(d.flow)); } );
+    
+
+    linegraph.transition()
+       .attr("y", function(d) {
+    return h4 - scaleNorm(d.normflow);
+       })
+    .attr("fill", function(d) { return d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow));} )
+       .attr("height", function(d) {
+    return scaleNorm(d.normflow);
+       });    
+
+    sdgraph.transition()
+    .attr("y", function(d) {
+    return h4-scaleNorm(d.normflow)-scaleNorm(2*d.sd/d.cap)/2;
+    })
+    .attr("fill",function(d) { return d3.rgb(redC(d.normflow),greenC(d.normflow),blueC(d.normflow));} )
+    .attr("height", function(d) {
+    return scaleNorm(2*d.sd/d.cap);
+    });
+
+    /////////////////////GENS
+//    console.log(dt.gens);
+//    console.log(gens);
+    dt.gens.forEach(function(d,i){
+//    console.log(d,i);
+//    console.log(gens[0][i].__data__);
+    gens[0][i].__data__.p=d.p;
+    gens[0][i].__data__.cost=d.cost;
+    gens[0][i].__data__.beta=d.beta;
+    });
+
+
+    });
+    
+
+
+
+    }
+
+  var failwidth=400;
+  var failheight=200;
+
+  var failL = dt.L;
+  var failp = dt.p;
+
+  var lineData = [{
+  x: 0,
+  y: 0
+  }, {
+  x: failL,
+  y: 0
+  }, {
+  x: 1,
+  y: failp
+  }, {
+  x: 1.2,
+  y: (.2+1-failL)*failp/(1-failL)
+  }];
+
+  var flatlineData = [{
+  x: 0,
+  y: failp
+  }, {
+  x: 1.2,
+  y: failp
+  }];
+
+  var flatylineData = [{
+  x: 1,
+  y: 0
+  }, {
+  x: 1,
+  y: (.2+1-failL)*failp/(1-failL)
+  }];
+
+
+
+  var failsvg = d3.select("#faildiv").append("svg")
+  .attr("width", failwidth)
+  .attr("height", failheight+20);
+
+  failMargins = {
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 60
+      };
+  failxRange = d3.scale.linear().range([failMargins.left, failwidth - failMargins.right]).domain([d3.min(lineData, function(d) {
+        return d.x;
+      }), d3.max(lineData, function(d) {
+        return d.x;
+      })]);
+      failyRange = d3.scale.linear().range([failheight - failMargins.top, failMargins.bottom]).domain([d3.min(lineData, function(d) {
+        return d.y;
+      }), d3.max(lineData, function(d) {
+        return d.y;
+      })]);
+      failxAxis = d3.svg.axis()
+        .scale(failxRange)
+        .tickSize(5)
+        .tickSubdivide(true),
+      failyAxis = d3.svg.axis()
+        .scale(failyRange)
+        .tickSize(5)
+        .orient('left')
+        .tickSubdivide(true);
+
+  failsvg.append('svg:g')
+    .attr('class', 'x axis')
+    .attr('transform', 'translate(0,' + (failheight - failMargins.bottom) + ')')
+    .call(failxAxis);
+
+  failsvg.append('svg:g')
+    .attr('class', 'y axis')
+    .attr('transform', 'translate(' + (failMargins.left) + ',0)')
+    .call(failyAxis);
+
+    failsvg.append("text")
+            .attr("transform", "rotate(-90),scale(1.4)")
+            .attr("y", 0)
+            .attr("x",0 - (failheight / 2) + 23)
+            .attr("dy", "1em")
+            .style("text-anchor", "middle")
+            .text("P[ Fail | Flow ]");
+
+    failsvg.append("text")
+            .attr("transform", "scale(1.4)")
+            .attr("y", failheight-60)
+            .attr("x",(failwidth-failMargins.left-failMargins.right)/2)
+            .attr("dy", "1em")
+            .style("text-anchor", "middle")
+            .text("Flow");
+
+var lineFunc = d3.svg.line()
+      .x(function(d) {
+        return failxRange(d.x);
+      })
+      .y(function(d) {
+        return failyRange(d.y);
+      })
+      .interpolate('linear');
+
+failsvg.append('svg:path')
+      .attr('d', lineFunc(lineData))
+      .attr('stroke', 'blue')
+      .attr('stroke-width', 2)
+      .attr('fill', 'none');
+
+failsvg.append('svg:path')
+      .attr('d', lineFunc(flatlineData))
+      .attr('stroke', 'blue')
+      .attr('stroke-width', 2)
+      .attr('fill', 'none')
+    .attr('opacity',.25);
+failsvg.append('svg:path')
+      .attr('d', lineFunc(flatylineData))
+      .attr('stroke', 'blue')
+      .attr('stroke-width', 2)
+      .attr('fill', 'none')
+    .attr('opacity',.25);
+
+}
+
+function makeScatter(){
+
+
+
+
+  var scatterwidth=450;
+  var scatterheight=350;
+   var scatterpadding=40;
+
+   var minRcc = d3.min(listcc,function(d){ return d.r; } );
+   var minRopf = d3.min(listopf,function(d){ return d.r; } );
+   var minRjcc = d3.min(listjcc,function(d){ return d.r; } );
+
+   var maxRcc = d3.max(listcc,function(d){ return d.r; } );
+   var maxRopf = d3.max(listopf,function(d){ return d.r; } );
+   var maxRjcc = d3.max(listjcc,function(d){ return d.r; } );
+
+   var minCcc = d3.min(listcc,function(d){ return d.c; } );
+   var minCopf = d3.min(listopf,function(d){ return d.c; } );
+   var minCjcc = d3.min(listjcc,function(d){ return d.c; } );
+
+   var maxCcc = d3.max(listcc,function(d){ return d.c; } );
+   var maxCopf = d3.max(listopf,function(d){ return d.c; } );
+   var maxCjcc = d3.max(listjcc,function(d){ return d.c; } );
+
+    console.log(minRopf,maxRopf,minRopf,maxRopf);
+    console.log(minCcc,maxCcc,minRcc,maxRcc);
+    console.log(minCjcc,maxCjcc,minRjcc,maxRjcc);
+
+   var minR = Math.min(minRcc,minRopf,minRjcc);
+   var maxR = Math.max(maxRcc,maxRopf,maxRjcc);
+   var minC = Math.min(minCcc,minCopf,minCjcc);
+   var maxC = Math.max(maxCcc,maxCopf,maxCjcc);
+
+    console.log(minR,maxR,minC,maxC);
+
+    var scatterCscale = d3.scale.linear()
+    .domain([minC,maxC])
+    .range([scatterpadding, scatterwidth - 2*scatterpadding]);
+    var scatterRscale = d3.scale.linear()
+    .domain([0,maxR])
+    .range([scatterheight-scatterpadding,scatterpadding]);
+
+
+    var scatterxAxis = d3.svg.axis()
+    .scale(scatterCscale)
+    .orient("bottom");
+    var scatteryAxis = d3.svg.axis()
+    .scale(scatterRscale)
+    .orient("left");
+    
+
+
+  var scattersvg = d3.select("#scatterdiv").append("svg")
+  .attr("width", scatterwidth)
+  .attr("height", scatterheight);
+
+    scattersvg.append("g")
+    .attr("class","xaxis")
+    .attr("transform","translate(0," + (scatterheight - scatterpadding) +")")
+    .call(scatterxAxis);
+    scattersvg.append("g")
+    .attr("class","yaxis")
+    .attr("transform","translate("+scatterpadding +",0)")
+    .call(scatteryAxis);
+      
+    scattersvg.selectAll("circlejcc")
+    .data(listjcc)
+    .enter()
+    .append("circle")
+    .attr("cx", function(d) {
+    return scatterCscale(d.c);
+    })
+    .attr("cy", function(d) {
+    return scatterRscale(d.r);
+    })
+    .attr("r", 2.75)
+    .attr("fill","blue")
+    .on("mouseover", function(d) {
+      var tooltip = d3.select("#tooltipScatter");
+      tooltip
+        .select("#type")
+        .text("JCC");
+      
+    tooltip.select("#cost")
+    .text("Cost: "+Number(d.c).toFixed(1));
+    tooltip.select("#risk")
+    .text("Risk: "+Number(d.r).toFixed(4));
+
+      //Show the tooltip
+      d3.select("#tooltipScatter").transition().duration(100).style("opacity",0.9375);
+      })
+    
+    .on("mouseout", function() {
+          d3.select("#tooltipScatter").transition().duration(375).style("opacity",0.0);
+
+    });
+
+
+    scattersvg.selectAll("circleopf")
+    .data(listopf)
+    .enter()
+    .append("circle")
+    .attr("cx", function(d) {
+    return scatterCscale(d.c);
+    })
+    .attr("cy", function(d) {
+    return scatterRscale(d.r);
+    })
+    .attr("r", 7)
+    .attr("fill","red")
+    .on("mouseover", function(d) {
+      var tooltip = d3.select("#tooltipScatter");
+      tooltip
+        .select("#type")
+        .text("OPF");
+
+    tooltip.select("#cost")
+    .text("Cost: "+Number(d.c).toFixed(1));
+    tooltip.select("#risk")
+    .text("Risk: "+Number(d.r).toFixed(4));      
+
+      //Show the tooltip
+      d3.select("#tooltipScatter").transition().duration(100).style("opacity",0.9375);
+      })
+    
+    .on("mouseout", function() {
+          d3.select("#tooltipScatter").transition().duration(375).style("opacity",0.0);
+
+    });
+
+
+    scattersvg.selectAll("circlecc")
+    .data(listcc)
+    .enter()
+    .append("circle")
+    .attr("cx", function(d) {
+    return scatterCscale(d.c);
+    })
+    .attr("cy", function(d) {
+    return scatterRscale(d.r);
+    })
+    .attr("r", 2.75)
+    .attr("fill","green")
+    .on("mouseover", function(d) {
+      var tooltip = d3.select("#tooltipScatter");
+      tooltip
+        .select("#type")
+        .text("CC  " + (Number(d.eta)).toFixed(4)+"%");
+      
+    tooltip.select("#cost")
+    .text("Cost: "+Number(d.c).toFixed(1));
+    tooltip.select("#risk")
+    .text("Risk: "+Number(d.r).toFixed(4));      
+
+
+      //Show the tooltip
+      d3.select("#tooltipScatter").transition().duration(100).style("opacity",0.9375);
+      })
+    
+    .on("mouseout", function() {
+          d3.select("#tooltipScatter").transition().duration(375).style("opacity",0.0);
+
+    });
+
+
+
+
+
+}
+
+
+
+  </script>
+
+
+
+<!--#include file="footer.html" -->
+    
+</div>
+  </body>
+</html>
