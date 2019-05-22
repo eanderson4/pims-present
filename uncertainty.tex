@@ -1,6 +1,6 @@
 
 \subsection{Uncertain Injects}
-\bc{\begin{frame}{Uncertain Injects}
+\begin{frame}{Uncertain Injects}
 \alert{Uncertainty in Injects to Power System}
 \bi
 \item Subset of nodes have uncertain injections
@@ -16,7 +16,7 @@
 \ei
 \ei
 \end{frame}
-}
+
 
 \begin{frame}{Uncertainty is Multivariate Normal}
 \alert{Assumption}
@@ -40,6 +40,54 @@ Uncertainty in net injections are Multivariate Normal
 \end{frame}
 
 
+\begin{frame}{Gaussian Injects}
+\alert{Net Injection Uncertainties}
+\bi
+\item Subset of nodes have uncertain injections (i.e. wind)
+\item Subset of generators respond to uncertainty (slack distribution)
+\ei
+\pause
+\begin{equation*}
+ \rx = C_g\left(\alert{x_g}+\rD\alert{\beta}\right) - (d + C_M \ri) 
+\end{equation*}
+
+\pause
+\begin{tabular}{ c l}
+$\rx$ & Net injects \\
+$x_g$ & Generator dispatch \\
+$\beta$ & Slack distribution \\
+$d$ & Expected demand \\
+$\ri$ & Nodal demand variation ($\mathbb{E} \left[ \ri \right] = 0$, $\Sigma$ known)\\
+$\rD$ & Aggregate demand variation ($\rD = 1^T \rdm$)
+\end{tabular}
+\end{frame}
+
+
+\begin{frame}{Gaussian Branch Flows}
+Assuming Gaussian injects and linear shift factors
+\bi
+\item Branch flows are Gaussian as well
+\ei
+\pause
+\begin{equation*}
+ \ry = \alert{y_0}+ A C_G\alert{ \beta }\rD  - A C_M \rdm 
+\end{equation*}
+\pause
+\begin{tabular}{c l}
+$\ry$ & Branch flows \\
+$y_0$ & Branch flows for forecasted system \\
+$A C_g \beta \rD$ &  Flow variation due to slack generation movement \\
+$A C_m \rdm $ & Flow variation due to nodal inject changes
+\end{tabular}
+
+%Random component of branch flow
+%\begin{equation*}
+%\rf = A C_G \beta \rD - AC_M \ri
+%\end{equation*}
+\end{frame}
+
+
+
 
 \subsection{Issues with Deterministic Analysis}
 \begin{frame}{Issues with Deterministic Analysis}
@@ -58,7 +106,7 @@ $\rightarrow $
 
 \begin{frame}{Normal Branch Flow}
 \begin{center}
-\includegraphics[scale=1.1]{\mypathjcc/fig-ccflow}
+\includegraphics[scale=1.1]{fig-ccflow}
 \end{center}
 PDF for Branch flow with mean (forecast) at nominal capacity
 \end{frame}
@@ -66,7 +114,7 @@ PDF for Branch flow with mean (forecast) at nominal capacity
 
 \begin{frame}{Normal Branch Flow}
 \begin{center}
-\includegraphics[scale=1.1]{\mypathjcc/fig-ccflowred}
+\includegraphics[scale=1.1]{fig-ccflowred}
 \end{center}
 
 \alert{Need to probabilistically enforce constraints}
@@ -75,127 +123,51 @@ PDF for Branch flow with mean (forecast) at nominal capacity
 
 
 \subsection{Chance Constraints}
+
+\begin{frame}{Chance Constraint Model}
+Replace the standard constraints with probalistic ones \footnotemark \footnotemark
+\[ P \left[ -U_e \leq \ry_e \leq U_e \right] \geq 1- \epsilon_l \hspace{20pt} \forall e\] 
+
+\pause
+\alert{Deterministic equivalent}
+
+
+%Generators 
+%\[ x_j + \beta_j \sigma_\Delta \eta_g \in \left[ G^{min}_j, G^{max}_j \right] \hspace{10pt} \forall j     \]
+%\pause
+Branch flows
+\[ y_e + s_e \eta_l \leq  U_e  \hspace{30pt} \forall e    \]
+with
+%\[ \eta_g = \Phi^{-1}(1 - \epsilon_g) \]
+\[ \eta_l = \Phi^{-1}(1 - \epsilon_l) \]
+
+
+\footnotetext[1]{{Bienstock}, D. and {Chertkov}, M. and {Harnett}, S.}
+\footnotetext[2]{Vrakopoulou, M. and Chatzivasileiadis, S. and Andersson, G.}
+
+%and 
+%\begin{align*}
+% s^2_e &= \pi_e^2 \sD - 2 \pi_e \se  +\see \\
+%\pe &= \textstyle \sum_j A_{ej} \beta_j 
+%\end{align*}
+
+%\begin{alignat*}{3}
+%                 && \pe - \textstyle \sum_j A_{ej} \beta_j   &=0 &&\forall e \\ 
+%                 && s^2_e - \pi_e^2 \sD + 2 \pi_e \se      &\geq\see &&\forall e  \\
+%                 && \textstyle \sum_j \beta_j &=1 &&
+%\end{alignat*}
+
+
+
+
+\end{frame}
+
+
 \begin{frame}{Chance Constraints}
 
 \begin{center}
-\includegraphics[scale=1.1]{\mypathjcc/fig-ccflowred-95}
+\includegraphics[scale=1.1]{fig-ccflowred-95}
 \end{center}
 
 
 \end{frame}
-
-\subsection{System Risk}
-\begin{frame}{Current Models}
-Determinsitic has fixed line thresholds
-\bi
-\item Line is completely okay
-\item or system is infeasible
-\ei
-\pause
-Chance Constraints
-\bi
-\item Enforce line threshold probalistically
-\ei
-\pause
-
-\alert{Line thresholds are soft constraints in real life}
-\pause
-\bi
-\item Multiple line ratings (i.e. short term emergency rating)
-\item Hard limit typically relay tripping
-\ei
-\end{frame}
-
-\begin{frame}{Line Limits}
-Limited by
-\bi
-\item Sagging due to current flow and line heating
-\item \alert<2>{Worst case environmental conditions (seasonally)}
-\item An acceptable probability of line failure
-\item Enforce N-1 Reliability Constraint
-\ei
-\bigskip
-\pause
-\textbf{Dynamic line limits}
-\bi
-\item Real time limits based on current environmental conditions
-\ei
-
-\end{frame}
-
-\begin{frame}{System Risk}
-
-System risk related to line loadings (severity measure) \footnotemark
-%\footfullcite{wang_2013}
-\footnotetext[2]{Qin Wang and McCalley, J.D. and Tongxin Zheng and Litvinov, E.}
-\pause
-
-
-\vspace{10pt}
-Intuition
-\bi
-\item Grid relatively stressed when more lines are near their limit
-\ei
-%Want risk measure to compare risk of line loadings
-%\vspace{10pt}
-\end{frame}
-\begin{frame}{Line Failure Model}
-
-Model for line failure risk
-
-\begin{center}
-\includegraphics[scale=0.7]{\mypathjcc/fig-failuredensity}
-\end{center}
-\pause
-
-Individual lines contribute to system risk
-\bi
-\item Balance economic object with system risk
-\item Cost-risk frontier
-\ei
-%\vspace{50pt}
-%This is the product of the probability that each line does not fail
-%\begin{equation*}  
-%h(y) = \prod_{e \in \cE} \left( 1 - g(y_e) \right)
-%\end{equation*}  
-%\bi
-%\item Implies hard line constraint, line risk=system risk
-%\ei
-%In the static case
-%\bi
-%\item Perform log transform to get exact solution
-%\ei
-
-\end{frame}
-
-
-
-% \begin{frame}{Line Risk Function}
-% Risk function takes the normalized flow returns line risk 
-% \begin{equation*}
-%  g(\hy_e) = \bP{\Xi}{\text{Line }e\text{ fails} | \hy_e} 
-% \end{equation*}
-% \pause
-% Piece-wise linear function choosen
-% \bi
-% \item Below $L$, there is no risk associated with loading
-% \item After $L$, the risk increases linearly with loading
-% \item At critical capacity $U^c$, line fails with certainty
-% \ei
-% \pause
-% \begin{equation*}
-% g(\hy_e) = \left\{ \begin{array}{l l}
-%   0 & \hy_e \leq L \\
-%   a + b \hy_e & L \leq \hy_e < U^c \\
-%   1 & U^c \leq \hy_e 
-% \end{array}
-% \right.
-% \end{equation*}
-% \end{frame}
-
-%\begin{frame}{Gaussian Branch Flow}
-%\begin{center}
-%\includegraphics[scale=1.2]{\mypathjcc/fig-pdfflow}
-%\end{center}
-%\end{frame}
-
